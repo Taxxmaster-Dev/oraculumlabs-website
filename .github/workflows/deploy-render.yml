@@ -1,0 +1,125 @@
+name: Deploy Oraculum production to Render
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oraculumlabs-production
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Validate, deploy and verify production
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Validate static website
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from html.parser import HTMLParser
+          from urllib.parse import urlsplit, unquote
+
+          pages = ['index.html', 'privacy.html', 'cookies.html', 'legal.html', 'terms.html']
+          assets = ['styles.css', 'robots.txt', 'sitemap.xml']
+          for name in pages + assets:
+              assert Path(name).is_file(), f'Missing required file: {name}'
+
+          class Links(HTMLParser):
+              def __init__(self):
+                  super().__init__()
+                  self.links = []
+              def handle_starttag(self, tag, attrs):
+                  for key, value in attrs:
+                      if key in {'href', 'src'} and value:
+                          self.links.append(value)
+
+          for name in pages:
+              source = Path(name).read_text(encoding='utf-8')
+              assert source.lstrip().lower().startswith('<!doctype html>'), f'Invalid document: {name}'
+              assert '<html lang="en">' in source, f'Language missing in {name}'
+              for legal in pages[1:]:
+                  assert f'href="{legal}"' in source, f'{name} missing footer link to {legal}'
+              parser = Links()
+              parser.feed(source)
+              for link in parser.links:
+                  parsed = urlsplit(link)
+                  if parsed.scheme or parsed.netloc or link.startswith(('#', '//')):
+                      continue
+                  target = unquote(parsed.path).lstrip('/') or 'index.html'
+                  assert Path(target).is_file(), f'{name} references missing file: {target}'
+
+          sitemap = Path('sitemap.xml').read_text(encoding='utf-8')
+          for name in pages:
+              target = 'https://oraculumlabs.eu/' + (name if name != 'index.html' else '')
+              assert target in sitemap, f'Sitemap missing {target}'
+          print('Static website and internal links: PASS')
+          PY
+
+      - name: Deploy latest main commit to Render
+        shell: bash
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error title=Render Deploy Hook not configured::Set the GitHub Actions repository secret RENDER_DEPLOY_HOOK_URL to the value in Render > oraculumlabs-website > Settings > Deploy Hook."
+            exit 1
+          fi
+          if [[ "$RENDER_DEPLOY_HOOK_URL" != https://api.render.com/deploy/* ]]; then
+            echo "::error title=Invalid Render deploy hook::The secret must contain the complete HTTPS Render deploy-hook URL."
+            exit 1
+          fi
+          curl --fail-with-body --silent --show-error --retry 2 --max-time 35 \
+            --request POST "$RENDER_DEPLOY_HOOK_URL" > "$RUNNER_TEMP/render-deploy-result.json"
+          python3 - <<'PY'
+          import json, os
+          from pathlib import Path
+          raw = Path(os.environ['RUNNER_TEMP'], 'render-deploy-result.json').read_text()
+          response = json.loads(raw) if raw.strip() else {}
+          if not isinstance(response, dict):
+              raise SystemExit('Unexpected Render deploy-hook response')
+          dep = response.get('deploy', {})
+          print('Render deploy request accepted', f"(deploy ID: {dep.get('id')})" if isinstance(dep, dict) and dep.get('id') else '(queued)')
+          PY
+
+      - name: Verify all production files match the Git commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          files=(index.html privacy.html cookies.html legal.html terms.html styles.css robots.txt sitemap.xml)
+          mkdir -p "$RUNNER_TEMP/oraculum-live"
+          for attempt in $(seq 1 48); do
+            mismatches=()
+            for file in "${files[@]}"; do
+              remote="$RUNNER_TEMP/oraculum-live/$file"
+              query="source=${GITHUB_SHA:0:12}-$attempt"
+              if ! curl --fail --silent --show-error --location \
+                    --connect-timeout 10 --max-time 25 \
+                    --header 'Cache-Control: no-cache' \
+                    --output "$remote" \
+                    "https://oraculumlabs.eu/$file?$query" 2>/dev/null; then
+                mismatches+=("$file: unavailable")
+              elif ! cmp -s "$file" "$remote"; then
+                mismatches+=("$file: differs")
+              fi
+            done
+            if [ ${#mismatches[@]} -eq 0 ]; then
+              echo "PASS: all ${#files[@]} production assets match the checked-out Git commit ($GITHUB_SHA)"
+              exit 0
+            fi
+            echo "Waiting for Render / CDN update (attempt $attempt/48): ${mismatches[*]}"
+            sleep 10
+          done
+          echo "::error title=Deployment incomplete::Production does not match the expected Git commit. Inspect the Render deploy and CDN."
+          exit 1
