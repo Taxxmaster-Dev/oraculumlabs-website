@@ -80,8 +80,15 @@ jobs:
             echo "::error title=Invalid Render deploy hook::The secret must contain the complete HTTPS Render deploy-hook URL."
             exit 1
           fi
+          # Pin this deployment to the exact SHA already validated above.
+          # Render disables its parallel native auto-deploy when the hook includes ref.
+          if [[ "$RENDER_DEPLOY_HOOK_URL" == *\?* ]]; then
+            separator='&'
+          else
+            separator='?'
+          fi
           curl --fail-with-body --silent --show-error --retry 2 --max-time 35 \
-            --request POST "$RENDER_DEPLOY_HOOK_URL" > "$RUNNER_TEMP/render-deploy-result.json"
+            --request POST "${RENDER_DEPLOY_HOOK_URL}${separator}ref=${GITHUB_SHA}" > "$RUNNER_TEMP/render-deploy-result.json"
           python3 - <<'PY'
           import json, os
           from pathlib import Path
