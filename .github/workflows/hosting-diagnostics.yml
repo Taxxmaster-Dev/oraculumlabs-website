@@ -1,0 +1,51 @@
+name: Diagnose live website hosting
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Inspect public DNS
+        shell: bash
+        run: |
+          set -u
+          for host in oraculumlabs.eu www.oraculumlabs.eu; do
+            echo "::group::DNS $host"
+            for kind in A AAAA CNAME; do
+              echo "-- $kind --"
+              dig +short "$host" "$kind" || true
+            done
+            echo "::endgroup::"
+          done
+
+      - name: Inspect response headers and page versions
+        shell: bash
+        run: |
+          set -u
+          for url in \
+            "https://oraculumlabs.eu/" \
+            "https://oraculumlabs.eu/cookies.html" \
+            "https://oraculumlabs.eu/legal.html" \
+            "https://oraculumlabs-website.onrender.com/" \
+            "https://taxxmaster-dev.github.io/oraculumlabs-website/"; do
+            echo "::group::HTTP $url"
+            echo "-- response headers --"
+            curl -ksSIL --max-time 25 --retry 1 "$url" | head -c 3000 || true
+            echo
+            tmp="$(mktemp)"
+            status="$(curl -ksSL --max-time 25 --retry 1 -o "$tmp" -w '%{http_code}' "$url" || true)"
+            echo "HTTP status: $status"
+            echo "Body sha256: $(sha256sum "$tmp" | awk '{print $1}')"
+            echo "Footer links:"
+            (grep -o -E 'href="(privacy|cookies|legal|terms)\.html"' "$tmp" | sort -u) || true
+            rm -f "$tmp"
+            echo "::endgroup::"
+          done
