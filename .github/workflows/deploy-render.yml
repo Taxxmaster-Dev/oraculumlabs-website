@@ -31,7 +31,7 @@ jobs:
           from urllib.parse import urlsplit, unquote
 
           pages = ['index.html', 'privacy.html', 'cookies.html', 'legal.html', 'terms.html']
-          assets = ['styles.css', 'robots.txt', 'sitemap.xml']
+          assets = ['styles.css', 'robots.txt', 'sitemap.xml', 'auth/turnstile.html']
           for name in pages + assets:
               assert Path(name).is_file(), f'Missing required file: {name}'
 
@@ -58,6 +58,16 @@ jobs:
                       continue
                   target = unquote(parsed.path).lstrip('/') or 'index.html'
                   assert Path(target).is_file(), f'{name} references missing file: {target}'
+
+          # Keep the unlisted mobile security page in the pinned deploy
+          # contract: a successful release must actually serve this URL.
+          challenge = Path('auth/turnstile.html').read_text(encoding='utf-8')
+          assert challenge.lstrip().lower().startswith('<!doctype html>'), 'Invalid auth challenge page'
+          assert 'name="robots" content="noindex,nofollow,noarchive"' in challenge, 'Auth page must not be indexed'
+          assert 'data-sitekey="0x4AAAAAAFV8u6t6bBBVR8i3"' in challenge, 'Wrong Cloudflare site key'
+          assert 'src="https://challenges.cloudflare.com/turnstile/v0/api.js"' in challenge, 'Missing Turnstile script'
+          assert 'OraculumCaptcha' in challenge, 'Missing native challenge bridge'
+          assert 'Secret Key' not in challenge and 'sk-proj-' not in challenge, 'Secret leaked to public auth page'
 
           sitemap = Path('sitemap.xml').read_text(encoding='utf-8')
           for name in pages:
@@ -104,7 +114,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=(index.html privacy.html cookies.html legal.html terms.html styles.css robots.txt sitemap.xml)
+          files=(index.html privacy.html cookies.html legal.html terms.html styles.css robots.txt sitemap.xml auth/turnstile.html)
           mkdir -p "$RUNNER_TEMP/oraculum-live"
           for attempt in $(seq 1 48); do
             mismatches=()
