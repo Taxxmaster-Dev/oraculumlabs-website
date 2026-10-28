@@ -31,8 +31,9 @@ jobs:
           from urllib.parse import urlsplit, unquote
 
           pages = ['index.html', 'privacy.html', 'cookies.html', 'legal.html', 'terms.html']
-          assets = ['styles.css', 'robots.txt', 'sitemap.xml', 'auth/turnstile.html']
-          for name in pages + assets:
+          app_pages = ['oraculum/privacy.html', 'oraculum/privacy-hu.html', 'oraculum/terms.html', 'oraculum/terms-hu.html']
+          assets = ['styles.css', 'robots.txt', 'sitemap.xml', 'auth/turnstile.html', 'oraculum/legal.css']
+          for name in pages + app_pages + assets:
               assert Path(name).is_file(), f'Missing required file: {name}'
 
           class Links(HTMLParser):
@@ -44,19 +45,28 @@ jobs:
                       if key in {'href', 'src'} and value:
                           self.links.append(value)
 
-          for name in pages:
+          for name in pages + app_pages:
               source = Path(name).read_text(encoding='utf-8')
               assert source.lstrip().lower().startswith('<!doctype html>'), f'Invalid document: {name}'
-              assert '<html lang="en">' in source, f'Language missing in {name}'
-              for legal in pages[1:]:
-                  assert f'href="{legal}"' in source, f'{name} missing footer link to {legal}'
+              language = 'hu' if name.endswith('-hu.html') else 'en'
+              assert f'<html lang="{language}">' in source, f'Language missing in {name}'
+              if name in pages:
+                  for legal in pages[1:]:
+                      assert f'href="{legal}"' in source, f'{name} missing footer link to {legal}'
+              else:
+                  assert f'href="https://oraculumlabs.eu/{name}"' in source, f'Canonical URL missing in {name}'
+                  assert 'office@oraculumlabs.eu' in source, f'App support contact missing in {name}'
+                  assert 'REVIEW DRAFT' not in source and 'OPEN:' not in source, f'Unresolved draft in {name}'
               parser = Links()
               parser.feed(source)
               for link in parser.links:
                   parsed = urlsplit(link)
                   if parsed.scheme or parsed.netloc or link.startswith(('#', '//')):
                       continue
-                  target = unquote(parsed.path).lstrip('/') or 'index.html'
+                  relative = unquote(parsed.path)
+                  target = Path(relative.lstrip('/')) if relative.startswith('/') else Path(name).parent / (relative or Path(name).name)
+                  if relative.endswith('/'):
+                      target = target / 'index.html'
                   assert Path(target).is_file(), f'{name} references missing file: {target}'
 
           # Keep the unlisted mobile security page in the pinned deploy
@@ -70,7 +80,7 @@ jobs:
           assert 'Secret Key' not in challenge and 'sk-proj-' not in challenge, 'Secret leaked to public auth page'
 
           sitemap = Path('sitemap.xml').read_text(encoding='utf-8')
-          for name in pages:
+          for name in pages + app_pages:
               target = 'https://oraculumlabs.eu/' + (name if name != 'index.html' else '')
               assert target in sitemap, f'Sitemap missing {target}'
           print('Static website and internal links: PASS')
@@ -114,12 +124,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          files=(index.html privacy.html cookies.html legal.html terms.html styles.css robots.txt sitemap.xml auth/turnstile.html)
+          files=(index.html privacy.html cookies.html legal.html terms.html styles.css robots.txt sitemap.xml auth/turnstile.html oraculum/privacy.html oraculum/privacy-hu.html oraculum/terms.html oraculum/terms-hu.html oraculum/legal.css)
           mkdir -p "$RUNNER_TEMP/oraculum-live"
           for attempt in $(seq 1 48); do
             mismatches=()
             for file in "${files[@]}"; do
               remote="$RUNNER_TEMP/oraculum-live/$file"
+              mkdir -p "$(dirname "$remote")"
               query="source=${GITHUB_SHA:0:12}-$attempt"
               if ! curl --fail --silent --show-error --location \
                     --connect-timeout 10 --max-time 25 \

@@ -23,3 +23,19 @@ GitHub Pages publishing is retired from this repository. The previous Pages work
 If the hook is missing or a deployment fails, the GitHub Actions workflow fails visibly instead of silently leaving an outdated page online. The last successful live Render site remains online while the issue is fixed.
 
 Do **not** add the Render Deploy Hook URL or a Render API key to this public repository.
+# ORACULUM application documents
+
+Application-specific notices, effective 28 October 2026, are separate from the
+corporate website policies:
+
+- Privacy: `/oraculum/privacy.html` (English), `/oraculum/privacy-hu.html` (Hungarian).
+- Terms: `/oraculum/terms.html` (English), `/oraculum/terms-hu.html` (Hungarian).
+- The English URLs are the canonical app-build and App Store Connect values.
+- The application notices describe the current beta, including fictional,
+  non-sensitive testing, external AI, account recovery, deletion limitations,
+  subscriptions and privacy rights. They do not certify native-device QA or
+  readiness for unrestricted sensitive-content processing.
+- The deployment workflow validates and compares all four documents and their
+  stylesheet against the exact Git commit. Nested verification output directories
+  are created for both the existing auth challenge and the application documents.
+
