@@ -39,3 +39,11 @@ corporate website policies:
   stylesheet against the exact Git commit. Nested verification output directories
   are created for both the existing auth challenge and the application documents.
 
+
+## Multilingual ORACULUM app privacy notices — November 2026
+
+- Privacy notices are provided in **all 25 launch locales**; browse `/oraculum/privacy-languages.html`.
+- The original English detailed notice remains at `/oraculum/privacy.html`; Hungarian is `/oraculum/privacy-hu.html`; 23 additional localized editions use `/oraculum/privacy-<locale>.html`.
+- Google Play privacy URL: `https://oraculumlabs.eu/oraculum/privacy.html` (include **.html**). External account-deletion help: `/oraculum/delete-account.html`.
+- English and Hungarian notices were extended to cover both Apple and Google stores as applicable. Translations should receive native-speaker / professional legal review before unrestricted production launch, particularly for country-specific requirements.
+- The application itself is not published by this static website update.

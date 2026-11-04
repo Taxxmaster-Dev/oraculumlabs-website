@@ -31,7 +31,8 @@ jobs:
           from urllib.parse import urlsplit, unquote
 
           pages = ['index.html', 'privacy.html', 'cookies.html', 'legal.html', 'terms.html']
-          app_pages = ['oraculum/privacy.html', 'oraculum/privacy-hu.html', 'oraculum/terms.html', 'oraculum/terms-hu.html']
+          app_pages = ['oraculum/privacy.html', 'oraculum/privacy-hu.html', 'oraculum/terms.html', 'oraculum/terms-hu.html', 'oraculum/privacy-languages.html', 'oraculum/delete-account.html']
+          app_pages += sorted(str(p) for p in Path('oraculum').glob('privacy-*.html') if p.name not in ('privacy-hu.html', 'privacy-languages.html'))
           assets = ['styles.css', 'robots.txt', 'sitemap.xml', 'auth/turnstile.html', 'oraculum/legal.css']
           for name in pages + app_pages + assets:
               assert Path(name).is_file(), f'Missing required file: {name}'
@@ -48,8 +49,8 @@ jobs:
           for name in pages + app_pages:
               source = Path(name).read_text(encoding='utf-8')
               assert source.lstrip().lower().startswith('<!doctype html>'), f'Invalid document: {name}'
-              language = 'hu' if name.endswith('-hu.html') else 'en'
-              assert f'<html lang="{language}">' in source, f'Language missing in {name}'
+              language = 'hu' if name.endswith('-hu.html') else ('ar' if name.endswith('-ar.html') else (name.removeprefix('oraculum/privacy-').removesuffix('.html') if name.startswith('oraculum/privacy-') and name not in ('oraculum/privacy-languages.html',) else 'en'))
+              assert f'<html lang="{language}"' in source, f'Language missing in {name}'
               if name in pages:
                   for legal in pages[1:]:
                       assert f'href="{legal}"' in source, f'{name} missing footer link to {legal}'
@@ -125,6 +126,7 @@ jobs:
         run: |
           set -euo pipefail
           files=(index.html privacy.html cookies.html legal.html terms.html styles.css robots.txt sitemap.xml auth/turnstile.html oraculum/privacy.html oraculum/privacy-hu.html oraculum/terms.html oraculum/terms-hu.html oraculum/legal.css)
+          for file in oraculum/privacy-*.html oraculum/delete-account.html; do files+=("$file"); done
           mkdir -p "$RUNNER_TEMP/oraculum-live"
           for attempt in $(seq 1 48); do
             mismatches=()
