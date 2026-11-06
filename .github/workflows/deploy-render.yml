@@ -33,6 +33,8 @@ jobs:
           pages = ['index.html', 'privacy.html', 'cookies.html', 'legal.html', 'terms.html']
           app_pages = ['oraculum/privacy.html', 'oraculum/privacy-hu.html', 'oraculum/terms.html', 'oraculum/terms-hu.html', 'oraculum/privacy-languages.html', 'oraculum/delete-account.html']
           app_pages += sorted(str(p) for p in Path('oraculum').glob('privacy-*.html') if p.name not in ('privacy-hu.html', 'privacy-languages.html'))
+          app_pages += ['oraculum/terms-languages.html']
+          app_pages += sorted(str(p) for p in Path('oraculum').glob('terms-*.html') if p.name not in ('terms-hu.html', 'terms-languages.html'))
           assets = ['styles.css', 'robots.txt', 'sitemap.xml', 'auth/turnstile.html', 'oraculum/legal.css']
           for name in pages + app_pages + assets:
               assert Path(name).is_file(), f'Missing required file: {name}'
@@ -49,7 +51,7 @@ jobs:
           for name in pages + app_pages:
               source = Path(name).read_text(encoding='utf-8')
               assert source.lstrip().lower().startswith('<!doctype html>'), f'Invalid document: {name}'
-              language = 'hu' if name.endswith('-hu.html') else ('ar' if name.endswith('-ar.html') else (name.removeprefix('oraculum/privacy-').removesuffix('.html') if name.startswith('oraculum/privacy-') and name not in ('oraculum/privacy-languages.html',) else 'en'))
+              language = 'hu' if name.endswith('-hu.html') else ('ar' if name.endswith('-ar.html') else ((name.split('/')[-1].split('-', 1)[1].removesuffix('.html')) if (name.startswith('oraculum/privacy-') or name.startswith('oraculum/terms-')) and not name.endswith('-languages.html') else 'en'))
               assert f'<html lang="{language}"' in source, f'Language missing in {name}'
               if name in pages:
                   for legal in pages[1:]:
@@ -58,6 +60,9 @@ jobs:
                   assert f'href="https://oraculumlabs.eu/{name}"' in source, f'Canonical URL missing in {name}'
                   assert 'office@oraculumlabs.eu' in source, f'App support contact missing in {name}'
                   assert 'REVIEW DRAFT' not in source and 'OPEN:' not in source, f'Unresolved draft in {name}'
+                  if language != 'en':
+                      assert '<h1>Privacy Notice</h1>' not in source, f'English privacy fallback in {name}'
+                      assert '<h1>Terms of Use</h1>' not in source, f'English terms fallback in {name}'
               parser = Links()
               parser.feed(source)
               for link in parser.links:
@@ -126,7 +131,7 @@ jobs:
         run: |
           set -euo pipefail
           files=(index.html privacy.html cookies.html legal.html terms.html styles.css robots.txt sitemap.xml auth/turnstile.html oraculum/privacy.html oraculum/privacy-hu.html oraculum/terms.html oraculum/terms-hu.html oraculum/legal.css)
-          for file in oraculum/privacy-*.html oraculum/delete-account.html; do files+=("$file"); done
+          for file in oraculum/privacy-*.html oraculum/terms-*.html oraculum/delete-account.html; do files+=("$file"); done
           mkdir -p "$RUNNER_TEMP/oraculum-live"
           for attempt in $(seq 1 48); do
             mismatches=()

@@ -29,7 +29,7 @@ Application-specific notices, effective 28 October 2026, are separate from the
 corporate website policies:
 
 - Privacy: `/oraculum/privacy.html` (English), `/oraculum/privacy-hu.html` (Hungarian).
-- Terms: `/oraculum/terms.html` (English), `/oraculum/terms-hu.html` (Hungarian).
+- Terms: `/oraculum/terms.html` (English), `/oraculum/terms-hu.html` (Hungarian), plus localized `/oraculum/terms-<locale>.html` pages for all 25 launch locales.
 - The English URLs are the canonical app-build and App Store Connect values.
 - The application notices describe the current beta, including fictional,
   non-sensitive testing, external AI, account recovery, deletion limitations,
@@ -43,6 +43,7 @@ corporate website policies:
 ## Multilingual ORACULUM app privacy notices — November 2026
 
 - Privacy notices are provided in **all 25 launch locales**; browse `/oraculum/privacy-languages.html`.
+- Terms of Use are now also provided in **all 25 launch locales**; browse `/oraculum/terms-languages.html`.
 - The original English detailed notice remains at `/oraculum/privacy.html`; Hungarian is `/oraculum/privacy-hu.html`; 23 additional localized editions use `/oraculum/privacy-<locale>.html`.
 - Google Play privacy URL: `https://oraculumlabs.eu/oraculum/privacy.html` (include **.html**). External account-deletion help: `/oraculum/delete-account.html`.
 - English and Hungarian notices were extended to cover both Apple and Google stores as applicable. Translations should receive native-speaker / professional legal review before unrestricted production launch, particularly for country-specific requirements.
