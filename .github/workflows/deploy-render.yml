@@ -63,6 +63,10 @@ jobs:
                   if language != 'en':
                       assert '<h1>Privacy Notice</h1>' not in source, f'English privacy fallback in {name}'
                       assert '<h1>Terms of Use</h1>' not in source, f'English terms fallback in {name}'
+                      assert 'Skip to content' not in source, f'English skip-link fallback in {name}'
+                      assert '🌐 Languages' not in source, f'English language-navigation fallback in {name}'
+                      assert '28 October 2026' not in source, f'English effective-date fallback in {name}'
+                      assert '4 November 2026' not in source, f'English updated-date fallback in {name}'
               parser = Links()
               parser.feed(source)
               for link in parser.links:
