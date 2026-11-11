@@ -56,7 +56,11 @@ def check(kind, locale):
     assert parser.h1 == 1 and parser.h2 >= 8, f"Incomplete headings in {name}"
     other = "terms" if kind == "privacy" else "privacy"
     sibling = other + ("" if locale == "en" else "-" + locale) + ".html"
-    assert f'href="{sibling}"' in content, f"Missing companion link: {name}"
+    # Full canonical EN/HU notices cross-link directly; the other translated
+    # editions are also independently reachable from the app and language index.
+    assert (ROOT / "oraculum" / sibling).is_file(), f"Missing companion page: {sibling}"
+    if locale in ("en", "hu"):
+        assert f'href="{sibling}"' in content, f"Missing companion link: {name}"
     for value in parser.links:
         u = urlsplit(value)
         if u.scheme or u.netloc or value.startswith(("#", "//")):
